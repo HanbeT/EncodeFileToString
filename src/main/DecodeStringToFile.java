@@ -1,24 +1,21 @@
 package main;
 
+import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import common.ComUtil;
 
-public class EncodeFileToString {
-
-    /** 出力先ファイル名パターン */
-    private final String FileNamePattern = "yyyyMMddHHmm";
+public class DecodeStringToFile {
 
     /** 共通処理クラス */
     private static ComUtil cu = null;
     /** インスタンス  */
-    private static EncodeFileToString ins = null;
+    private static DecodeStringToFile ins = null;
 
     public static void main(String[] args) {
 
@@ -33,7 +30,7 @@ public class EncodeFileToString {
         boolean errFlg = false;
 
         // インスタンス生成
-        ins = new EncodeFileToString();
+        ins = new DecodeStringToFile();
         // 共通処理クラスインスタンス化
         cu = new ComUtil();
 
@@ -45,7 +42,6 @@ public class EncodeFileToString {
 
         // 入力ファイル取得
         inputFile = args[0];
-
 
         try {
             if ( new File(inputFile).isDirectory() ) {
@@ -59,7 +55,7 @@ public class EncodeFileToString {
                 fileList = new File(inputFile).listFiles();
                 for ( File file : fileList ) {
                     // エンコードメソッド呼び出し
-                    if ( !ins.encode(file, outputDir) ) {
+                    if ( !ins.decode(file, outputDir) ) {
                         // エラーフラグON
                         errFlg = true;
                     }
@@ -72,7 +68,7 @@ public class EncodeFileToString {
                     outputDir = outputDir + File.separator;
                 }
                 // エンコードメソッド呼び出し
-                if ( !ins.encode(new File(inputFile), outputDir) ) {
+                if ( !ins.decode(new File(inputFile), outputDir) ) {
                     // エラーフラグON
                     errFlg = true;
                 }
@@ -92,46 +88,53 @@ public class EncodeFileToString {
             System.out.println("正常に変換が完了しました。");
             System.exit(0);
         }
+
     }
 
     /**
-     * エンコードメソッド
-     * @param aFile エンコード対象ファイル
+     * デコードメソッド
+     * @param aFile デコード対象データ記載ファイル
      * @param anOutputPath 出力フォルダパス
      * @return true：成功/false：失敗
      * @throws IOException
      */
-    private boolean encode(File aFile, String anOutputPath) throws IOException {
+    private boolean decode(File aFile, String anOutputPath) throws IOException {
         // 戻り値
         boolean res = true;
         // ファイル読み込みクラス
-        FileInputStream input = null;
-        // 読み込みデータ
-        int readData = 0;
-        // データリスト
-        ArrayList<Integer> data = new ArrayList<Integer>();
+        BufferedReader  input = null;
+        // 出力ファイル名
+        String fileName = null;
+        // 書き込みデータ
+        String data = null;
+        //
+        Matcher m = null;
         // 書き込みクラス
-        PrintWriter output = null;
+        FileOutputStream output = null;
 
         try {
-            System.out.println("エンコード開始：" + aFile.getName());
-            // 変換対象ファイル取得
-            input = new FileInputStream(aFile);
-            // データ読み込み
-            while ( (readData = input.read()) != -1 ) {
-                // 読み込みデータ格納
-                data.add(readData);
-            }
+            System.out.println("デコード開始：" + aFile.getName());
+            // 変換元データ取得
+            input = new BufferedReader(new FileReader(aFile));
+
+            // ファイル読み込み
+            // ファイル名取得
+            fileName = input.readLine().split("：")[1];
+            // 書き込みデータ取得
+            data = input.readLine();
+
             // ファイルクローズ
             input.close();
 
             // 書き込み用ファイル取得
-            output = new PrintWriter(anOutputPath + ins.createFileName(aFile.getName()));
-            output.println("ファイル名：" + aFile.getName());
-            // データ書き込み
-            for ( int i : data ) {
-                output.print(cu.exchangeDecToHex(i));
+            output = new FileOutputStream(anOutputPath + fileName);
+
+            m = Pattern.compile("[0-9a-zA-Z]{2}").matcher(data);
+            while ( m.find() ) {
+                // データ書き込み
+                output.write(cu.exchangeHexToDec(m.group()));
             }
+
             // ファイルクローズ
             output.close();
 
@@ -153,14 +156,6 @@ public class EncodeFileToString {
                 System.out.println("ファイルクローズでエラーが発生しました。：" + aFile.getName());
             }
         }
-        return res;
-    }
-
-    private String createFileName(String aFileName) {
-        // 戻り値
-        String res = null;
-        res = new SimpleDateFormat(ins.FileNamePattern).format(new Date());
-        res = res + "_" + cu.excludeExtension(aFileName) + ".txt";
         return res;
     }
 
